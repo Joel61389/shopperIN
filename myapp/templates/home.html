@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}ShopperIN | Step In. Shop Local. Pay Instant.{% endblock %}
+{% block content %}
+{% if user.is_authenticated %}
+<section class="welcome-hero">
+    <div>
+        <p class="eyebrow">KARIBU BACK</p>
+        <h1>Karibu tena, {{ request.user.username }}! Ready to discover something great today?</h1>
+        <p class="hero-subtitle">Browse fresh arrivals, grab event passes, or manage your store in seconds.</p>
+        <div class="hero-actions">
+            <a class="button button-primary" href="{% url 'order_history' %}">My Orders &amp; Tickets</a>
+            {% if request.user.role == "VENDOR" %}<a class="button button-light" href="{% url 'vendor_dashboard' %}">Open Vendor Dashboard</a>{% endif %}
+            <a class="hero-text-link" href="#catalog">Explore listings <span aria-hidden="true">&#8594;</span></a>
+        </div>
+    </div>
+    <div class="welcome-stamp" aria-hidden="true"><span>Made for</span><strong>Kenya</strong><span>with care</span></div>
+</section>
+{% else %}
+<section class="hero">
+    <div class="hero-copy">
+        <p class="hero-badge"><span aria-hidden="true"></span>Kenya's Trusted Marketplace &amp; Event Hub</p>
+        <h1>Shop Local. Grab Tickets. Pay Instantly with M-Pesa.</h1>
+        <p class="hero-tagline">Step In. Shop Local. Pay Instant.</p>
+        <p class="hero-subtitle">Karibu to ShopperIN — discover quality products from trusted Kenyan vendors and book tickets to events around you. Pay simply and securely with M-Pesa.</p>
+        <div class="hero-actions">
+            <a class="button button-mpesa" href="#catalog">Explore Marketplace <span aria-hidden="true">&#8595;</span></a>
+            <a class="button button-light" href="{% url 'register' %}?role=VENDOR">Start Selling Free</a>
+        </div>
+        <div class="hero-proof"><span class="proof-check">&#10003;</span><span>Simple checkout</span><i></i><span>Secure M-Pesa</span><i></i><span>Local sellers</span></div>
+    </div>
+    <div class="hero-showcase" aria-label="Featured community listing">
+        {% with featured=products.0 %}
+            {% if featured and featured.image %}
+                <img class="hero-product-image" src="{{ featured.image.url }}" alt="{{ featured.name }}">
+                <div class="hero-feature-card"><span class="hero-feature-label">FROM THE COMMUNITY</span><strong>{{ featured.name }}</strong><span>KES {{ featured.price|floatformat:2 }} <b aria-hidden="true">&#8599;</b></span></div>
+            {% else %}
+                <div class="hero-art" aria-hidden="true"><span class="hero-art-sun"></span><span class="hero-art-bag">D</span><span class="hero-art-ticket">LOCAL<br>FINDS</span></div>
+                <div class="hero-feature-card"><span class="hero-feature-label">MADE FOR YOUR EVERYDAY</span><strong>Shop local, feel good.</strong><span>Products &amp; experiences <b aria-hidden="true">&#8599;</b></span></div>
+            {% endif %}
+        {% endwith %}
+        <div class="hero-note"><span class="hero-note-mark">&#10003;</span><span><strong>Pay with M-Pesa</strong><small>Fast, familiar, secure</small></span></div>
+    </div>
+</section>
+{% endif %}
+
+{% if not user.is_authenticated %}
+<section class="value-section" aria-labelledby="value-title">
+    <div class="section-intro"><p class="eyebrow">LOCAL COMMERCE, MADE SIMPLE</p><h2 id="value-title">A better way to buy and belong.</h2></div>
+    <div class="value-grid">
+        <article class="value-item"><span class="value-icon icon-payment" aria-hidden="true">&#8599;</span><h3>Instant M-Pesa STK Push</h3><p>Pay straight from your phone in seconds. Receive an automatic STK prompt and verified M-Pesa receipt immediately.</p></article>
+        <article class="value-item"><span class="value-icon icon-vendors" aria-hidden="true">&#10003;</span><h3>Trusted Local Vendors</h3><p>Support verified Kenyan businesses, creators, and event organizers all in one transparent marketplace.</p></article>
+        <article class="value-item"><span class="value-icon icon-events" aria-hidden="true">&#9733;</span><h3>Seamless Event Ticketing</h3><p>From concerts to workshops, secure your spot effortlessly with instant digital order confirmation.</p></article>
+    </div>
+</section>
+
+<section class="steps-section" aria-labelledby="steps-title">
+    <div class="steps-heading"><p class="eyebrow">THREE SIMPLE STEPS</p><h2 id="steps-title">From browsing to sorted.</h2></div>
+    <div class="steps-grid">
+        <article class="step-item"><span class="step-number">01</span><div><h3>Pick What You Love</h3><p>Browse products or event tickets and click Buy with M-Pesa.</p></div></article>
+        <article class="step-item"><span class="step-number">02</span><div><h3>Approve on Your Phone</h3><p>Enter your Safaricom number and confirm the M-Pesa PIN prompt.</p></div></article>
+        <article class="step-item"><span class="step-number">03</span><div><h3>Instant Confirmation</h3><p>Get your verified M-Pesa receipt right away — zero hassle.</p></div></article>
+    </div>
+</section>
+{% endif %}
+
+<section class="catalog-section" id="catalog" aria-labelledby="catalog-title">
+    <div class="catalog-heading">
+        <div><p class="eyebrow">SHOP THE COMMUNITY</p><h2 id="catalog-title">Today's Featured Marketplace &amp; Events</h2><p class="catalog-subtitle">Freshly listed by our community of vendors — pay securely in KES.</p></div>
+        <span class="listing-count">{{ products|length }} listings</span>
+    </div>
+    <nav class="catalog-tabs" aria-label="Listing type">
+        <a class="catalog-tab {% if not selected_type %}is-selected{% endif %}" href="{% url 'home' %}{% if query %}?q={{ query|urlencode }}{% endif %}#catalog">All</a>
+        <a class="catalog-tab {% if selected_type == 'products' %}is-selected{% endif %}" href="{% url 'home' %}?type=products{% if query %}&amp;q={{ query|urlencode }}{% endif %}#catalog">Products &amp; Groceries</a>
+        <a class="catalog-tab {% if selected_type == 'tickets' %}is-selected{% endif %}" href="{% url 'home' %}?type=tickets{% if query %}&amp;q={{ query|urlencode }}{% endif %}#catalog">Event Tickets</a>
+    </nav>
+    <form class="catalog-search" method="get" action="{% url 'home' %}#catalog">
+        <label class="sr-only" for="store-search">Search products, events, or vendors</label>
+        <input id="store-search" name="q" type="search" value="{{ query }}" placeholder="Search products, events, or vendors...">
+        {% if selected_type %}<input type="hidden" name="type" value="{{ selected_type }}">{% endif %}
+        {% if selected_category %}<input type="hidden" name="category" value="{{ selected_category }}">{% endif %}
+        <button class="button button-dark" type="submit">Search listings</button>
+    </form>
+    <nav class="filter-pills" aria-label="Filter by category">
+        {% for group, categories in category_groups %}
+            {% for code, label in categories %}
+                <a class="filter-pill {% if selected_category == code %}is-selected{% endif %}" href="{% url 'home' %}?category={{ code }}{% if selected_type %}&amp;type={{ selected_type }}{% endif %}{% if query %}&amp;q={{ query|urlencode }}{% endif %}#catalog">{{ label }}</a>
+            {% endfor %}
+        {% endfor %}
+    </nav>
+    <div class="product-grid">
+        {% for product in products %}
+            <article class="product-card">
+                {% if product.image %}
+                    <img class="product-image" src="{{ product.image.url }}" alt="{{ product.name }}">
+                {% else %}
+                    <div class="product-placeholder" aria-label="No image available"><span>{{ product.get_category_display }}</span></div>
+                {% endif %}
+                <div class="product-body">
+                    <div class="product-meta"><span class="category-badge">{{ product.get_category_display }}</span><span class="product-card-labels">{% if product.is_featured %}<span class="featured-badge">Featured</span>{% endif %}<span class="stock-badge {% if product.stock == 0 %}sold-out{% endif %}">{% if product.stock %}{{ product.stock }} in stock{% else %}Sold out{% endif %}</span></span></div>
+                    <h3>{{ product.name }}</h3>
+                    <p class="product-description">{{ product.description|default:"A local listing from ShopperIN." }}</p>
+                    <p class="seller-line">Sold by <span class="seller-name">{{ product.vendor.username }}{% if product.vendor.is_verified %}<span class="verified-check" role="img" aria-label="Verified vendor" title="Verified vendor">&#10003;</span>{% endif %}</span></p>
+                    <div class="product-rating" aria-label="Rated {{ product.average_rating_value|default:0|floatformat:1 }} out of 5 from {{ product.review_count_value }} reviews"><span>★</span> {{ product.average_rating_value|default:0|floatformat:1 }} <small>({{ product.review_count_value }} reviews)</small></div>
+                    <div class="product-footer"><strong class="price">KES {{ product.price|floatformat:2 }}</strong>
+                {% if user.is_authenticated %}
+                    {% if product.stock %}<div class="product-actions"><button class="button button-outline" type="button" data-cart-add="{{ product.id }}">Add to Cart</button><button class="button button-primary" type="button" data-dialog-open="checkout-{{ product.id }}">{% if product.is_ticket %}Book Ticket{% else %}Buy with M-Pesa{% endif %}</button></div>{% else %}<button class="button button-disabled" type="button" disabled>Sold out</button>{% endif %}
+                {% else %}
+                    {% if product.stock %}<div class="product-actions"><button class="button button-outline" type="button" data-cart-add="{{ product.id }}">Add to Cart</button><a href="{% url 'login' %}" class="button button-primary">Login to buy</a></div>{% else %}<button class="button button-disabled" type="button" disabled>Sold out</button>{% endif %}
+                {% endif %}
+                    </div>
+                </div>
+                {% if product.reviews.all %}
+                <div class="recent-reviews">
+                    {% for review in product.reviews.all|slice:":2" %}
+                    <p><span class="review-stars" aria-label="{{ review.rating }} out of 5 stars">{% for star in rating_range %}{% if star <= review.rating %}★{% else %}☆{% endif %}{% endfor %}</span><span>{{ review.comment|default:"Verified purchase"|truncatechars:90 }}</span><small>Verified buyer · {{ review.user.username }}</small></p>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% if user.is_authenticated and product.stock %}
+                <dialog class="checkout-dialog" id="checkout-{{ product.id }}" aria-labelledby="checkout-title-{{ product.id }}">
+                    <form method="post" action="{% url 'checkout' product.id %}" class="checkout-form">
+                        {% csrf_token %}
+                        <button class="dialog-close" type="button" data-dialog-close aria-label="Close">&times;</button>
+                        <p class="eyebrow">SECURE CHECKOUT</p>
+                        <h2 id="checkout-title-{{ product.id }}">{{ product.name }}</h2>
+                        <p class="muted">KES {{ product.price|floatformat:2 }} each. An M-Pesa prompt will be sent to your phone.</p>
+                        <label>Quantity<input type="number" name="quantity" value="1" min="1" max="{{ product.stock }}" required></label>
+                        <label>M-Pesa phone<input type="tel" name="phone_number" value="{{ user.phone_number }}" placeholder="2547XXXXXXXX" pattern="254[17][0-9]{8}" required></label>
+                        <button class="button button-primary button-wide" type="submit">Pay with M-Pesa</button>
+                    </form>
+                </dialog>
+                {% endif %}
+            </article>
+        {% empty %}
+            <div class="empty-state"><h2>No listings found</h2><p class="muted">Try another search, or check back soon for new products and tickets.</p></div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

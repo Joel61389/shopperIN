@@ -1,0 +1,341 @@
+{% extends "base.html" %}
+{% block title %}Vendor portal | ShopperIN{% endblock %}
+{% block content %}
+<section class="page-heading">
+    <div><p class="eyebrow">VENDOR PORTAL</p><h1>Your shop, at a glance.</h1><p class="muted">Publish listings and keep stock up to date.</p></div>
+</section>
+
+<section class="metric-grid" aria-label="Shop summary">
+    <div class="metric"><span>Total listings</span><strong>{{ total_listings }}</strong></div>
+    <div class="metric"><span>Total stock</span><strong>{{ total_stock }}</strong></div>
+    <div class="metric"><span>Paid revenue</span><strong>KES {{ total_revenue|floatformat:2 }}</strong></div>
+</section>
+
+<section class="vendor-trust-tools">
+    <article class="verification-card">
+        <div class="verification-heading">
+            <div><p class="eyebrow">VENDOR TRUST</p><h2>Blue Tick verification</h2></div>
+            {% if request.user.is_verified %}<span class="verified-badge"><span aria-hidden="true">&#10003;</span> Verified</span>{% elif verification_eligible %}<span class="verification-ready">Ready for review</span>{% else %}<span class="verification-progress-label">In progress</span>{% endif %}
+        </div>
+        <p class="muted">Build a trusted shop with a few steady milestones.</p>
+        <ul class="verification-checklist">
+            <li class="{% if request.user.is_verified or paid_orders_count >= 5 %}is-complete{% endif %}"><span aria-hidden="true">{% if request.user.is_verified or paid_orders_count >= 5 %}&#10003;{% else %}1{% endif %}</span><div><strong>5 paid orders</strong><small>{{ paid_orders_count }} of 5 completed</small></div></li>
+            <li class="{% if request.user.is_verified or verification_review_count >= 3 and verification_average_rating >= 4.2 %}is-complete{% endif %}"><span aria-hidden="true">{% if request.user.is_verified or verification_review_count >= 3 and verification_average_rating >= 4.2 %}&#10003;{% else %}2{% endif %}</span><div><strong>3 reviews averaging 4.2 or higher</strong><small>{{ verification_review_count }} reviews · {{ verification_average_rating|floatformat:1 }} average</small></div></li>
+            <li class="{% if request.user.is_verified or active_products_count >= 3 %}is-complete{% endif %}"><span aria-hidden="true">{% if request.user.is_verified or active_products_count >= 3 %}&#10003;{% else %}3{% endif %}</span><div><strong>3 active listings</strong><small>{{ active_products_count }} of 3 active</small></div></li>
+        </ul>
+        {% if request.user.is_verified %}<p class="verification-note">Your verified badge is shown to shoppers across ShopperIN.</p>
+        {% elif verification_eligible %}<p class="verification-note">You meet the shop milestones. Submit your ID document for a verification review.</p>
+        {% else %}<p class="verification-note">Keep serving buyers well. Your progress updates as orders and reviews come in.</p>{% endif %}
+        <form class="verification-upload" method="post" enctype="multipart/form-data">
+            {% csrf_token %}<input type="hidden" name="action" value="request_verification">
+            <label for="id-vendor-document">{% if request.user.id_document %}Replace ID document{% else %}ID document{% endif %}</label>
+            <input id="id-vendor-document" name="id_document" type="file" accept="image/*,.pdf" required>
+            <button class="button button-small button-outline" type="submit">Submit for review</button>
+            {% if request.user.id_document %}<small>Your document has been submitted for review.</small>{% endif %}
+        </form>
+    </article>
+    <article class="wallet-card">
+        <p class="eyebrow">DUKACOINS</p><h2>Your rewards wallet</h2>
+        <strong class="wallet-balance">{{ request.user.coin_balance }} <span>DukaCoins</span></strong>
+        <p class="muted">Use 100 coins to feature a listing on the storefront for 48 hours.</p>
+    </article>
+</section>
+
+<section class="form-section">
+    <div class="section-heading"><div><p class="eyebrow">{% if editing_product %}EDIT LISTING{% else %}NEW LISTING{% endif %}</p><h2>{% if editing_product %}Update your listing{% else %}Add a product or ticket{% endif %}</h2></div><span class="section-note">Visible in your shop once published</span></div>
+    <form method="post" enctype="multipart/form-data" class="listing-form" id="listing-form" data-draft-key="dukapay-vendor-draft-{{ request.user.pk }}-{% if editing_product %}{{ editing_product.pk }}{% else %}new{% endif %}" data-clear-draft-key="{{ clear_vendor_draft|default:'' }}" data-server-errors="{% if form.errors %}true{% else %}false{% endif %}">
+        {% csrf_token %}
+        {% if editing_product %}<input type="hidden" name="product_id" value="{{ editing_product.id }}">{% endif %}
+        {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+        {% for field in form %}
+            {% if field.name == "description" %}
+            <div class="field field-wide description-generator">
+                <label for="{{ field.id_for_label }}"><span>{{ field.label }}</span></label>
+                <div class="description-input-row">
+                    {{ field }}
+                    <button class="button button-outline" id="refresh-description" type="button" data-url="{% url 'generate_description' %}">✨ Refresh AI Description</button>
+                </div>
+                <small class="generator-status" id="generator-status" aria-live="polite">A fresh description can be drafted from your title, category and photo.</small>
+                <div class="description-warning" id="description-warning" role="status" aria-live="polite" hidden></div>
+                {% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}
+            </div>
+            {% elif field.name == "image" %}
+            <div class="field image-upload-field">
+                <label for="{{ field.id_for_label }}"><span>{{ field.label }}</span></label>
+                <div class="photo-picker-actions"><button class="button button-outline" id="take-photo" type="button">📷 Take Photo</button><button class="button button-outline" id="choose-gallery" type="button">📁 Choose from Gallery</button></div>
+                {{ field }}
+                <small class="image-upload-help" id="image-upload-help">Snap a clear photo in good light or choose from your gallery (JPG, PNG, or WebP). No stress — you can retake it anytime before saving.</small>
+                <div class="image-preview-row" id="image-preview-row" hidden>
+                    <img class="image-preview-thumb" id="upload-preview" alt="Selected product or ticket photo preview">
+                    <div class="image-preview-actions">
+                        <small class="image-ready" id="image-ready" aria-live="polite">Photo ready. You can retake it before publishing.</small>
+                        <button class="button button-small button-outline" id="remove-image" type="button">Retake / Remove photo</button>
+                    </div>
+                </div>
+                {% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}
+            </div>
+            {% else %}
+            <label class="field{% if field.name == 'description' %} field-wide{% endif %}" for="{{ field.id_for_label }}"><span>{{ field.label }}</span>{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</label>
+            {% endif %}
+        {% endfor %}
+        <div class="field-wide listing-submit-actions"><button type="submit" class="button button-primary">{% if editing_product %}Save changes{% else %}Publish listing{% endif %}</button>{% if editing_product %}<a class="button button-outline" href="{% url 'vendor_dashboard' %}">Cancel edit</a>{% endif %}</div>
+    </form>
+</section>
+
+<dialog class="camera-dialog" id="camera-modal" aria-labelledby="camera-modal-title">
+    <div class="camera-modal-content">
+        <div class="camera-modal-heading"><div><p class="eyebrow">PHOTO CAPTURE</p><h2 id="camera-modal-title">Take a product photo</h2></div><button class="dialog-close" id="close-camera" type="button" aria-label="Close camera">&times;</button></div>
+        <p class="muted">Hold steady and use good light. You can retake it before saving.</p>
+        <video id="camera-video" autoplay playsinline aria-label="Live camera preview"></video>
+        <p class="camera-status" id="camera-status" role="status" aria-live="polite">Starting your camera…</p>
+        <div class="camera-actions"><button class="button button-primary" id="snap-picture" type="button" disabled>Snap Picture</button><button class="button button-outline" id="cancel-camera" type="button">Cancel</button></div>
+    </div>
+</dialog>
+<input id="camera-fallback" class="sr-only" type="file" accept="image/*" capture="environment" tabindex="-1" aria-hidden="true">
+<input id="gallery-picker" class="sr-only" type="file" accept="image/*" tabindex="-1" aria-hidden="true">
+
+<script>
+    const listingForm = document.getElementById("listing-form");
+    const refreshDescriptionButton = document.getElementById("refresh-description");
+    const descriptionField = listingForm?.querySelector("[name='description']");
+    const nameField = listingForm?.querySelector("[name='name']");
+    const categoryField = listingForm?.querySelector("[name='category']");
+    const priceField = listingForm?.querySelector("[name='price']");
+    const descriptionStatus = document.getElementById("generator-status");
+    const descriptionWarning = document.getElementById("description-warning");
+    const imageInput = document.querySelector("#id_image");
+    const imagePreview = document.getElementById("upload-preview");
+    const imagePreviewRow = document.getElementById("image-preview-row");
+    const removeImageButton = document.getElementById("remove-image");
+    const cameraDialog = document.getElementById("camera-modal");
+    const cameraVideo = document.getElementById("camera-video");
+    const cameraStatus = document.getElementById("camera-status");
+    const snapPictureButton = document.getElementById("snap-picture");
+    const cameraFallbackInput = document.getElementById("camera-fallback");
+    const galleryPicker = document.getElementById("gallery-picker");
+    let cameraStream = null;
+    let previewUrl = null;
+    let userEditedDescription = false;
+    let descriptionTimer = null;
+    let descriptionRequestController = null;
+
+    const draftKey = listingForm?.dataset.draftKey;
+    const draftFields = ["name", "price", "stock", "category", "description"];
+    const saveDraft = () => {
+        if (!draftKey) return;
+        const values = Object.fromEntries(draftFields.map((name) => [name, listingForm.querySelector(`[name='${name}']`)?.value ?? ""]));
+        try { localStorage.setItem(draftKey, JSON.stringify(values)); } catch (error) { /* Storage may be disabled. */ }
+    };
+    if (listingForm?.dataset.clearDraftKey) {
+        try { localStorage.removeItem(listingForm.dataset.clearDraftKey); } catch (error) { /* Storage may be disabled. */ }
+    }
+    if (draftKey && listingForm?.dataset.serverErrors !== "true") {
+        try {
+            const savedDraft = JSON.parse(localStorage.getItem(draftKey) || "null");
+            if (savedDraft) {
+                draftFields.forEach((name) => {
+                    const field = listingForm.querySelector(`[name='${name}']`);
+                    if (field && Object.hasOwn(savedDraft, name)) field.value = savedDraft[name];
+                });
+                userEditedDescription = Boolean(savedDraft.description);
+                if (savedDraft.name || savedDraft.description) descriptionStatus.textContent = "Your saved draft has been restored. Add your photo again if you had selected one.";
+            }
+        } catch (error) { /* Ignore damaged or unavailable local drafts. */ }
+    }
+    listingForm?.addEventListener("input", saveDraft);
+    listingForm?.addEventListener("change", saveDraft);
+
+    const releasePreviewUrl = () => {
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        previewUrl = null;
+    };
+    const assignImageFile = (file) => {
+        try {
+            const transfer = new DataTransfer();
+            transfer.items.add(file);
+            imageInput.files = transfer.files;
+            imageInput.dispatchEvent(new Event("change", { bubbles: true }));
+        } catch (error) {
+            descriptionStatus.textContent = "Your browser could not attach that photo. Please choose it with the upload control.";
+            imageInput.click();
+        }
+    };
+    const stopCamera = () => {
+        cameraStream?.getTracks().forEach((track) => track.stop());
+        cameraStream = null;
+        cameraVideo.srcObject = null;
+        snapPictureButton.disabled = true;
+    };
+    const openCamera = async () => {
+        cameraDialog.showModal();
+        cameraStatus.textContent = "Starting your camera…";
+        if (!navigator.mediaDevices?.getUserMedia) {
+            cameraStatus.textContent = "Live camera is unavailable. Choose a photo using your device camera or gallery.";
+            cameraDialog.close();
+            cameraFallbackInput.click();
+            return;
+        }
+        try {
+            cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+            cameraVideo.srcObject = cameraStream;
+            await cameraVideo.play();
+            snapPictureButton.disabled = false;
+            cameraStatus.textContent = "Camera ready. Frame your item and snap when it looks clear.";
+        } catch (error) {
+            stopCamera();
+            cameraStatus.textContent = "Camera permission is unavailable. Choose a photo with your device camera or gallery.";
+            cameraDialog.close();
+            cameraFallbackInput.click();
+        }
+    };
+    document.getElementById("take-photo")?.addEventListener("click", openCamera);
+    document.getElementById("choose-gallery")?.addEventListener("click", () => galleryPicker.click());
+    document.getElementById("close-camera")?.addEventListener("click", () => cameraDialog.close());
+    document.getElementById("cancel-camera")?.addEventListener("click", () => cameraDialog.close());
+    cameraDialog?.addEventListener("click", (event) => {
+        if (event.target === cameraDialog) cameraDialog.close();
+    });
+    cameraDialog?.addEventListener("close", stopCamera);
+    document.getElementById("snap-picture")?.addEventListener("click", () => {
+        if (!cameraVideo.videoWidth || !cameraVideo.videoHeight) return;
+        const canvas = document.createElement("canvas");
+        canvas.width = cameraVideo.videoWidth;
+        canvas.height = cameraVideo.videoHeight;
+        canvas.getContext("2d").drawImage(cameraVideo, 0, 0);
+        canvas.toBlob((blob) => {
+            if (!blob) {
+                cameraStatus.textContent = "That photo could not be saved. Please try again.";
+                return;
+            }
+            assignImageFile(new File([blob], `shopperin-photo-${Date.now()}.jpg`, { type: "image/jpeg" }));
+            cameraDialog.close();
+        }, "image/jpeg", 0.9);
+    });
+    cameraFallbackInput?.addEventListener("change", () => {
+        if (cameraFallbackInput.files?.[0]) assignImageFile(cameraFallbackInput.files[0]);
+        cameraFallbackInput.value = "";
+    });
+    galleryPicker?.addEventListener("change", () => {
+        if (galleryPicker.files?.[0]) assignImageFile(galleryPicker.files[0]);
+        galleryPicker.value = "";
+    });
+
+    descriptionField?.addEventListener("input", () => {
+        userEditedDescription = true;
+    });
+
+    const refreshDescription = async (manual = false) => {
+        const name = nameField?.value.trim();
+        const category = categoryField?.value;
+        if (!name || !category || !refreshDescriptionButton) {
+            if (descriptionStatus) descriptionStatus.textContent = "Add a listing name and choose a category to draft a description.";
+            return;
+        }
+
+        descriptionRequestController?.abort();
+        const controller = new AbortController();
+        descriptionRequestController = controller;
+        const formData = new FormData();
+        formData.append("name", name);
+        formData.append("category", category);
+        if (priceField?.value.trim()) formData.append("price", priceField.value.trim());
+        if (imageInput?.files?.[0]) formData.append("image", imageInput.files[0]);
+
+        descriptionWarning.hidden = true;
+        descriptionStatus.textContent = "✨ Crafting a poetic pitch from your title & photo...";
+        try {
+            const response = await fetch(refreshDescriptionButton.dataset.url, {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "X-CSRFToken": listingForm.querySelector("[name='csrfmiddlewaretoken']").value },
+                body: formData,
+                signal: controller.signal
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || "Could not refresh the description.");
+            if (result.mismatch) {
+                descriptionWarning.textContent = result.message || "This photo may not match the listing title. Please double-check before publishing.";
+                descriptionWarning.hidden = false;
+                descriptionStatus.textContent = "Please check the photo and title before publishing.";
+                return;
+            }
+            if (!result.description) throw new Error("No description was returned. Please try again.");
+            if (manual || !userEditedDescription) {
+                descriptionField.value = result.description;
+                userEditedDescription = false;
+                saveDraft();
+                descriptionStatus.textContent = result.fallback
+                    ? "A draft is ready. Review it and make it your own before publishing."
+                    : "Your description is ready. Review it and make it your own before publishing.";
+            } else {
+                descriptionStatus.textContent = "Your custom description is safe. Use Refresh AI Description to replace it.";
+            }
+        } catch (error) {
+            if (error.name !== "AbortError") descriptionStatus.textContent = error.message || "Description refresh is temporarily unavailable.";
+        } finally {
+            if (descriptionRequestController === controller) descriptionRequestController = null;
+        }
+    };
+
+    nameField?.addEventListener("input", () => {
+        clearTimeout(descriptionTimer);
+        descriptionTimer = setTimeout(() => refreshDescription(), 900);
+    });
+    categoryField?.addEventListener("change", () => refreshDescription());
+    refreshDescriptionButton?.addEventListener("click", () => refreshDescription(true));
+
+    imageInput?.addEventListener("change", () => {
+        releasePreviewUrl();
+        const file = imageInput.files?.[0];
+        if (!file) {
+            imagePreviewRow.hidden = true;
+            imagePreview.removeAttribute("src");
+            refreshDescription();
+            return;
+        }
+        previewUrl = URL.createObjectURL(file);
+        imagePreview.src = previewUrl;
+        imagePreviewRow.hidden = false;
+        refreshDescription();
+    });
+    removeImageButton?.addEventListener("click", () => {
+        releasePreviewUrl();
+        imageInput.value = "";
+        imagePreview.removeAttribute("src");
+        imagePreviewRow.hidden = true;
+        imageInput.focus();
+        imageInput.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    window.addEventListener("pagehide", releasePreviewUrl, { once: true });
+</script>
+
+<section class="management-section">
+    <div class="section-heading"><div><p class="eyebrow">INVENTORY</p><h2>My Listings</h2></div></div>
+    <div class="table-wrap vendor-listings-wrap">
+        <table class="management-table vendor-listings-table">
+            <thead><tr><th>Listing</th><th>Category</th><th>Price</th><th>Stock</th><th>Actions</th></tr></thead>
+            <tbody>
+                {% for item in products %}
+                <tr>
+                    <td class="listing-cell" data-label="Listing">
+                        <div class="listing-summary">
+                            {% if item.image %}<img class="listing-thumbnail" src="{{ item.image.url }}" alt="" loading="lazy">{% else %}<span class="listing-thumbnail listing-thumbnail-empty" aria-hidden="true">Photo</span>{% endif %}
+                            <div class="listing-title"><strong>{{ item.name }}</strong><span class="table-subtext">{% if item.is_active %}Active{% else %}Hidden from shop{% endif %}</span></div>
+                        </div>
+                    </td>
+                    <td data-label="Category"><span class="category-badge">{{ item.get_category_display }}</span></td>
+                    <td data-label="Price" class="listing-price">KES {{ item.price|floatformat:2 }}</td>
+                    <td data-label="Stock">
+                        <div class="listing-stock">
+                            <span class="stock-badge{% if item.stock == 0 %} sold-out{% elif item.stock <= 3 %} low-stock{% endif %}">{% if item.stock == 0 %}Sold Out{% elif item.stock <= 3 %}Low Stock · {{ item.stock }}{% else %}In Stock · {{ item.stock }}{% endif %}</span>
+                            <form method="post" class="stock-form">{% csrf_token %}<input type="hidden" name="action" value="update_stock"><input type="hidden" name="product_id" value="{{ item.id }}"><label class="sr-only" for="stock-{{ item.id }}">Stock count for {{ item.name }}</label><input id="stock-{{ item.id }}" name="stock" type="number" min="0" value="{{ item.stock }}"><button class="button button-small button-outline" type="submit">Save stock</button></form>
+                        </div>
+                    </td>
+                    <td data-label="Actions" class="action-cell"><a class="button button-small button-outline" href="?edit={{ item.id }}#listing-form">Edit</a>{% if item.featured_until and item.featured_until > current_time %}<span class="featured-badge">Featured</span>{% else %}<form method="post" action="{% url 'feature_product' item.id %}">{% csrf_token %}<button class="button button-small button-outline" type="submit" {% if request.user.coin_balance < 100 %}disabled title="100 DukaCoins required"{% endif %}>Feature · 100</button></form>{% endif %}<form method="post">{% csrf_token %}<input type="hidden" name="action" value="toggle_listing"><input type="hidden" name="product_id" value="{{ item.id }}"><button class="button button-small button-outline" type="submit">{% if item.is_active %}Hide{% else %}Show{% endif %}</button></form><form method="post" onsubmit="return confirm('Delete this listing?');">{% csrf_token %}<input type="hidden" name="action" value="delete_product"><input type="hidden" name="product_id" value="{{ item.id }}"><button class="button button-small button-danger" type="submit">Delete</button></form></td>
+                </tr>
+                {% empty %}<tr><td class="table-empty" colspan="5">No listings yet. Add your first product or ticket above.</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

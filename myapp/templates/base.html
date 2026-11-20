@@ -1,0 +1,108 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#f8fafc">
+    <title>{% block title %}ShopperIN | The local marketplace{% endblock %}</title>
+    <link rel="icon" type="image/svg+xml" href="{% static 'images/logo.svg' %}">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+    <nav class="navbar">
+        <div class="nav-inner">
+            <a href="{% url 'home' %}" class="brand" aria-label="ShopperIN home"><svg class="brand-icon" viewBox="0 0 48 48" aria-hidden="true"><rect x="2" y="2" width="44" height="44" rx="12" fill="#16a34a"/><path d="M14 20h20l-1.6 17H15.6L14 20Z" fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round"/><path d="M19 20v-3a5 5 0 0 1 10 0v3M24 24v9m-4-4 4 4 4-4" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="39" cy="9" r="4" fill="#f59e0b"/></svg><span class="brand-wordmark">Shopper<span>IN</span></span></a>
+            <form class="nav-search" action="{% url 'home' %}" method="get" role="search">
+                <label class="sr-only" for="nav-search">Search the store</label>
+                <input id="nav-search" type="search" name="q" placeholder="Search products and tickets" value="{{ request.GET.q }}">
+                <button type="submit" aria-label="Search">Search</button>
+            </form>
+            <div class="nav-links">
+                <a href="{% url 'home' %}">Store</a>
+            {% if user.is_authenticated %}
+                {% if user.role == "VENDOR" %}
+                    <a href="{% url 'vendor_dashboard' %}">Vendor Dashboard</a>
+                {% else %}
+                    <a href="{% url 'order_history' %}">My Orders</a>
+                {% endif %}
+                <span class="nav-user">{{ user.username }}</span>
+                <form method="post" action="{% url 'logout' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-link">Logout</button>
+                </form>
+            {% else %}
+                <a href="{% url 'login' %}">Login</a>
+                <a href="{% url 'register' %}">Sign Up</a>
+            {% endif %}
+                <button class="cart-trigger" type="button" data-cart-open aria-controls="cart-drawer" aria-expanded="false"><span aria-hidden="true">&#128722;</span><span>Cart (<b data-cart-count>0</b>)</span><small data-cart-total>KES 0</small></button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags|default:'info' }}" role="status">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+        {% block content %}{% endblock %}
+    </main>
+    <div class="cart-backdrop" data-cart-close></div>
+    <aside class="cart-drawer" id="cart-drawer" aria-label="Shopping cart" aria-hidden="true" data-add-url="{% url 'cart_add' %}" data-update-url="{% url 'cart_update' %}" data-clear-url="{% url 'cart_clear' %}">
+        <div class="cart-heading"><div><p class="eyebrow">YOUR BASKET</p><h2>Shopping cart</h2></div><button class="cart-close" type="button" data-cart-close aria-label="Close cart">&times;</button></div>
+        <p class="cart-status" data-cart-status aria-live="polite"></p>
+        <div class="cart-items" data-cart-items></div>
+        <div class="cart-empty" data-cart-empty>Your cart is empty. Add a product or ticket to get started.</div>
+        <form class="cart-csrf" hidden>{% csrf_token %}</form>
+        <div class="cart-summary">
+            <div class="cart-total-row"><span>Subtotal</span><strong data-cart-subtotal>KES 0</strong></div>
+            {% if user.is_authenticated %}
+            <form method="post" action="{% url 'cart_checkout' %}" class="cart-checkout-form">
+                {% csrf_token %}
+                <label class="coin-toggle" for="redeem-coins-toggle"><input id="redeem-coins-toggle" type="checkbox" data-coin-toggle><span><strong>Redeem DukaCoins</strong><small><span data-coins-balance>{{ user.coin_balance }}</span> available · up to 20% off</small></span></label>
+                <div class="cart-coin-discount" data-coin-discount-row hidden><span>Coin discount</span><strong data-coin-discount>KES 0</strong></div>
+                <input type="hidden" name="redeem_coins" value="" data-redeem-coins>
+                <label for="cart-phone">M-Pesa phone</label>
+                <input id="cart-phone" name="phone_number" type="tel" value="{{ user.phone_number }}" placeholder="2547XXXXXXXX" pattern="254[17][0-9]{8}" required>
+                <div class="cart-total-row cart-payable-row"><span>Payable via M-Pesa</span><strong data-cart-payable>KES 0</strong></div>
+                <button class="button button-primary button-wide" type="submit" data-cart-checkout>Pay via M-Pesa (<span data-cart-pay-total>KES 0</span>)</button>
+            </form>
+            {% else %}
+            <a class="button button-primary button-wide" href="{% url 'login' %}">Log in to checkout</a>
+            {% endif %}
+            <button type="button" class="cart-clear" data-cart-clear>Clear cart</button>
+        </div>
+    </aside>
+    <footer class="site-footer">
+        <div class="footer-inner">
+            <div class="footer-main">
+                <a href="{% url 'home' %}" class="brand footer-brand" aria-label="ShopperIN home"><svg class="brand-icon" viewBox="0 0 48 48" aria-hidden="true"><rect x="2" y="2" width="44" height="44" rx="12" fill="#16a34a"/><path d="M14 20h20l-1.6 17H15.6L14 20Z" fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round"/><path d="M19 20v-3a5 5 0 0 1 10 0v3M24 24v9m-4-4 4 4 4-4" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="39" cy="9" r="4" fill="#f59e0b"/></svg><span class="brand-wordmark">Shopper<span>IN</span></span></a>
+                <p class="footer-summary">ShopperIN brings Kenyan shoppers, event-goers, and independent vendors together for simple M-Pesa commerce.</p>
+                <p class="footer-tagline">Step In. Shop Local. Pay Instant.</p>
+                <p class="footer-callout">Have products to sell or an event to host? Open your vendor dashboard and list in minutes.</p>
+                {% if user.is_authenticated and user.role == "VENDOR" %}
+                    <a class="footer-vendor-link" href="{% url 'vendor_dashboard' %}">Open Vendor Dashboard <span aria-hidden="true">&#8599;</span></a>
+                {% else %}
+                    <a class="footer-vendor-link" href="{% url 'register' %}?role=VENDOR">Open your vendor portal <span aria-hidden="true">&#8599;</span></a>
+                {% endif %}
+            </div>
+            <nav class="footer-links" aria-label="Footer navigation">
+                <h2>Explore ShopperIN</h2>
+                <a href="{% url 'home' %}#catalog">Marketplace</a>
+                <a href="{% url 'order_history' %}">My Orders</a>
+                {% if user.is_authenticated and user.role == "VENDOR" %}
+                    <a href="{% url 'vendor_dashboard' %}">Vendor Portal</a>
+                {% else %}
+                    <a href="{% url 'register' %}?role=VENDOR">Vendor Portal</a>
+                {% endif %}
+                <a href="{% url 'register' %}">Sign Up</a>
+            </nav>
+            <div class="footer-trust"><span class="mpesa-badge"><span class="mpesa-mark">M</span><span><strong>M-Pesa Express</strong><small>Powered</small></span></span><p>Fast checkout, trusted locally.</p></div>
+        </div>
+        <div class="footer-bottom"><span>&copy; {% now "Y" %} ShopperIN. Made for Kenya.</span><span>Step In. Shop Local. Pay Instant.</span></div>
+    </footer>
+    <script src="{% static 'js/main.js' %}"></script>
+</body>
+</html>

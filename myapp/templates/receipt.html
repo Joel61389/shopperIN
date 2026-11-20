@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Payment receipt | ShopperIN{% endblock %}
+{% block content %}
+<section class="receipt-page">
+    <div class="receipt-mark" aria-hidden="true">{% if order.status == "PAID" %}&#10003;{% else %}...{% endif %}</div>
+    <p class="eyebrow">ShopperIN PAYMENT RECEIPT</p>
+    <h1>{% if order.status == "PAID" %}Payment complete{% elif order.status == "FAILED" %}Payment not completed{% else %}Payment pending{% endif %}</h1>
+    <p class="muted">Order {{ order.id|slice:":8" }} · {{ order.created_at|date:"M j, Y · H:i" }}</p>
+    <dl class="receipt-details">
+        <div><dt>Items</dt><dd>{% for line in batch_orders %}{{ line.product.name }} × {{ line.quantity }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</dd></div>
+        {% if coins_redeemed %}<div><dt>DukaCoins redeemed</dt><dd>− KES {{ coins_redeemed }}</dd></div>{% endif %}
+        <div><dt>Amount</dt><dd>KES {{ payment_amount|floatformat:0 }}</dd></div>
+        <div><dt>Paid from</dt><dd>{{ order.phone_number }}</dd></div>
+        <div><dt>M-Pesa receipt</dt><dd>{% if receipt_code %}<strong>{{ receipt_code }}</strong>{% else %}<span class="muted">Not available</span>{% endif %}</dd></div>
+    </dl>
+    <div class="receipt-actions"><a class="button button-primary" href="{% url 'order_history' %}">View my orders</a><a class="text-link" href="{% url 'home' %}">Continue shopping</a></div>
+</section>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}My orders | ShopperIN{% endblock %}
+{% block content %}
+<section class="page-heading"><div><p class="eyebrow">PURCHASE HISTORY</p><h1>My orders</h1><p class="muted">Payment status and M-Pesa receipts for your purchases.</p></div></section>
+<section class="orders-wallet">
+    <div><p class="eyebrow">DUKACOINS</p><h2>Your rewards wallet</h2><strong>{{ user.coin_balance }} <span>DukaCoins</span></strong></div>
+    <p class="muted">Earn 1 coin for every KES 100 paid and 15 coins when you leave a verified review.</p>
+</section>
+{% if coin_transactions %}<details class="coin-history"><summary>Recent coin activity</summary><ul>{% for entry in coin_transactions %}<li><span>{{ entry.reason }}</span><strong class="{% if entry.amount < 0 %}coin-spent{% else %}coin-earned{% endif %}">{% if entry.amount > 0 %}+{% endif %}{{ entry.amount }}</strong></li>{% endfor %}</ul></details>{% endif %}
+<div class="table-wrap">
+    <table class="management-table orders-table">
+        <thead><tr><th>Item</th><th>Date</th><th>Total</th><th>Status</th><th>M-Pesa receipt</th></tr></thead>
+        <tbody>
+            {% for order in orders %}
+            <tr>
+                <td><strong>{{ order.product.name }}</strong><span class="table-subtext">Quantity {{ order.quantity }}</span>
+                    {% if order.status == "PAID" %}
+                    {% with review=order.product.my_reviews.0 %}
+                    <form class="review-form" method="post" action="{% url 'submit_review' order.product_id %}">
+                        {% csrf_token %}
+                        <label for="rating-{{ order.id }}">Your rating</label>
+                        <select id="rating-{{ order.id }}" name="rating" required><option value="">Rate this purchase</option><option value="5" {% if review.rating == 5 %}selected{% endif %}>★★★★★ Excellent</option><option value="4" {% if review.rating == 4 %}selected{% endif %}>★★★★☆ Good</option><option value="3" {% if review.rating == 3 %}selected{% endif %}>★★★☆☆ Okay</option><option value="2" {% if review.rating == 2 %}selected{% endif %}>★★☆☆☆ Poor</option><option value="1" {% if review.rating == 1 %}selected{% endif %}>★☆☆☆☆ Bad</option></select>
+                        <label class="sr-only" for="comment-{{ order.id }}">Review comment</label>
+                        <textarea id="comment-{{ order.id }}" name="comment" maxlength="500" rows="2" placeholder="Share a few words (optional)">{{ review.comment }}</textarea>
+                        <button class="button button-small button-outline" type="submit">{% if review %}Update review{% else %}Save review{% endif %}</button>
+                    </form>
+                    {% endwith %}
+                    {% if order.product.is_ticket and order.pass_qr_data %}<div class="event-pass"><img src="data:image/svg+xml;base64,{{ order.pass_qr_data }}" alt="QR event pass for order {{ order.id }}"><div><strong>Event entry pass</strong><small>Show this code at the gate · Order {{ order.id|slice:":8" }}</small></div></div>{% endif %}
+                    {% endif %}
+                </td>
+                <td>{{ order.created_at|date:"M j, Y · H:i" }}</td>
+                <td>KES {{ order.total_amount|floatformat:2 }}</td>
+                <td><span class="status-badge status-{{ order.status|lower }}">{{ order.get_status_display }}</span></td>
+                <td>{% if order.mpesa_receipt %}<a class="receipt-code" href="{% url 'receipt' order.id %}">{{ order.mpesa_receipt }}</a>{% elif order.status == "PENDING" %}<a href="{% url 'payment_waiting' order.id %}">Waiting for payment</a>{% else %}<span class="muted">Not available</span>{% endif %}</td>
+            </tr>
+            {% empty %}<tr><td class="table-empty" colspan="5">Your purchases will appear here.</td></tr>{% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
